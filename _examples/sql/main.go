@@ -11,7 +11,7 @@ var (
 	sqlArg = kingpin.Arg("sql", "SQL to parse.").Required().String()
 
 	sqlLexer = lexer.Unquote(lexer.Upper(lexer.Must(lexer.Regexp(`(\s+)`+
-		`|(?P<Keyword>(?i)SELECT|FROM|TOP|DISTINCT|ALL|WHERE|GROUP|BY|HAVING|UNION|MINUS|EXCEPT|INTERSECT|ORDER|LIMIT|OFFSET|TRUE|FALSE|NULL|IS|NOT|ANY|SOME|BETWEEN|AND|OR|LIKE|AS|IN)`+
+		`|(?P<Keyword>(?i)SELECT|FROM|TOP|DISTINCT|ALL|WHERE|GROUP|BY|HAVING|UNION|MINUS|EXCEPT|INTERSECT|ORDER|LIMIT|OFFSET|TRUE|FALSE|NULL|IS|NOT|ANY|SOME|BETWEEN|AND|OR|LIKE|AS|\bIN\b|INNER|OUTER|LEFT|RIGHT|JOIN|ON)`+
 		`|(?P<Ident>[a-zA-Z_][a-zA-Z0-9_]*)`+
 		`|(?P<Number>[-+]?\d*\.?\d+([eE][-+]?\d+)?)`+
 		`|(?P<String>'[^']*'|"[^"]*")`+
@@ -40,15 +40,32 @@ type Select struct {
 }
 
 type From struct {
-	TableExpressions []*TableExpression `@@ { "," @@ }`
-	Where            *Expression        `[ "WHERE" @@ ]`
+	TableExpression  *TableExpression  `@@`
+	TableExpressions []*FromExpression `[ @@ { @@ } ]`
+	Where            *Expression       `[ "WHERE" @@ ]`
+}
+
+type FromExpression struct {
+	TableExpression *TableExpression `[ @@ ]`
+	Join            *Join            `[ @@ ]`
+	Comma           string           `[ "," ]`
+}
+
+type Join struct {
+	Left       bool             `[ @"LEFT"`
+	Right      bool             ` | @"RIGHT" ]`
+	Inner      bool             `[ @"INNER" `
+	Outer      bool             ` | @"OUTER" ]`
+	Join       string           `"JOIN"`
+	TableRight *TableExpression ` @@ `
+	On         string           `@"ON"`
 }
 
 type TableExpression struct {
 	Table  string        `( @Ident { "." @Ident }`
 	Select *Select       `  | "(" @@ ")"`
 	Values []*Expression `  | "VALUES" "(" @@ { "," @@ } ")")`
-	As     string        `[ "AS" @Ident ]`
+	As     string        `[ "AS" ][ @Ident ]`
 }
 
 type SelectExpression struct {
@@ -58,7 +75,7 @@ type SelectExpression struct {
 
 type AliasedExpression struct {
 	Expression *Expression `@@`
-	As         string      `[ "AS" @Ident ]`
+	As         string      `[ "AS" ][ @Ident ]`
 }
 
 type Expression struct {
